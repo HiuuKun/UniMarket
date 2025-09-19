@@ -7,9 +7,33 @@ interface HeaderProps {
   onNavigate: (page: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  user: {
+    name: string;
+    email: string;
+    picture?: string;
+  } | null;
+  onLogin: () => void;
+  onLogout: () => void;
 }
 
-export function Header({ currentPage, onNavigate, searchQuery, onSearchChange }: HeaderProps) {
+export function Header({
+  currentPage,
+  onNavigate,
+  searchQuery,
+  onSearchChange,
+  user,
+  onLogin,
+  onLogout,
+}: HeaderProps) {
+  const userInitials = user?.name
+    ? user.name
+        .split(' ')
+        .filter(Boolean)
+        .map(part => part[0]?.toUpperCase() ?? '')
+        .join('')
+        .slice(0, 2)
+    : '';
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -73,7 +97,7 @@ export function Header({ currentPage, onNavigate, searchQuery, onSearchChange }:
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
-          <Button 
+          <Button
             onClick={() => onNavigate('sell')}
             className="hidden sm:flex"
             size="sm"
@@ -81,14 +105,36 @@ export function Header({ currentPage, onNavigate, searchQuery, onSearchChange }:
             <Plus className="h-4 w-4 mr-2" />
             Sell Item
           </Button>
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="sm"
             onClick={() => onNavigate('profile')}
+            aria-label="View profile"
           >
-            <User className="h-4 w-4" />
+            {user?.picture ? (
+              <img
+                src={user.picture}
+                alt={user.name}
+                className="h-6 w-6 rounded-full object-cover"
+              />
+            ) : userInitials ? (
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium uppercase">
+                {userInitials}
+              </span>
+            ) : (
+              <User className="h-4 w-4" />
+            )}
           </Button>
-          
+          {user ? (
+            <Button variant="outline" size="sm" onClick={onLogout}>
+              Log out
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" onClick={onLogin}>
+              Sign in with Google
+            </Button>
+          )}
+
           {/* Mobile Menu */}
           <Button variant="ghost" size="sm" className="md:hidden">
             <Menu className="h-4 w-4" />

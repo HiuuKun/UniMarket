@@ -1,4 +1,9 @@
 import { useState } from "react";
+import {
+  TokenResponse,
+  googleLogout,
+  useGoogleLogin,
+} from "@react-oauth/google";
 import { Header } from "./components/Header";
 import { HomePage } from "./components/HomePage";
 import { ItemDetail } from "./components/ItemDetail";
@@ -97,6 +102,12 @@ const mockItems: Item[] = [
   },
 ];
 
+interface GoogleUser {
+  name: string;
+  email: string;
+  picture?: string;
+}
+
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
@@ -104,6 +115,56 @@ export default function App() {
   const [items, setItems] = useState<Item[]>(mockItems);
   const [favoriteItems, setFavoriteItems] = useState<Item[]>([mockItems[1]]);
   const [userItems, setUserItems] = useState<Item[]>([]);
+  const [googleUser, setGoogleUser] = useState<GoogleUser | null>(null);
+
+  const handleGoogleLoginSuccess = async (tokenResponse: TokenResponse) => {
+    if (!tokenResponse.access_token) {
+      toast.error('Google login did not return an access token.');
+      return;
+    }
+
+    try {
+      const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: {
+          Authorization: `Bearer ${tokenResponse.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch Google user information');
+      }
+
+      const data = await response.json();
+      const userProfile: GoogleUser = {
+        name: data.name ?? 'Google User',
+        email: data.email ?? '',
+        picture: data.picture ?? undefined,
+      };
+
+      setGoogleUser(userProfile);
+      setCurrentPage('profile');
+      toast.success(`Logged in as ${userProfile.name}`);
+    } catch (error) {
+      console.error('Failed to fetch Google user info', error);
+      toast.error('Failed to fetch Google user information. Please try again.');
+    }
+  };
+
+  const handleGoogleLoginError = () => {
+    toast.error('Google login failed. Please try again.');
+  };
+
+  const googleLogin = useGoogleLogin({
+    onSuccess: handleGoogleLoginSuccess,
+    onError: handleGoogleLoginError,
+    scope: 'openid profile email',
+  });
+
+  const handleGoogleLogout = () => {
+    googleLogout();
+    setGoogleUser(null);
+    toast.info('Logged out of Google');
+  };
 
   const handleNavigate = (page: string) => {
     setCurrentPage(page);
@@ -189,6 +250,7 @@ export default function App() {
       case 'profile':
         return (
           <UserProfile
+            user={googleUser}
             userItems={userItems}
             favoriteItems={favoriteItems}
             onItemClick={handleItemClick}
@@ -216,6 +278,9 @@ export default function App() {
         onNavigate={handleNavigate}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        user={googleUser}
+        onLogin={() => googleLogin()}
+        onLogout={handleGoogleLogout}
       />
       
       <main className="flex-1 flex flex-col">

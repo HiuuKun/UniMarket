@@ -8,6 +8,11 @@ import { Badge } from "./ui/badge";
 import { ItemCard, Item } from "./ItemCard";
 
 interface UserProfileProps {
+  user: {
+    name: string;
+    email: string;
+    picture?: string;
+  } | null;
   userItems: Item[];
   favoriteItems: Item[];
   onItemClick: (item: Item) => void;
@@ -15,7 +20,14 @@ interface UserProfileProps {
   onEditItem: (item: Item) => void;
 }
 
-export function UserProfile({ userItems, favoriteItems, onItemClick, onSellNewItem, onEditItem }: UserProfileProps) {
+export function UserProfile({
+  user,
+  userItems,
+  favoriteItems,
+  onItemClick,
+  onSellNewItem,
+  onEditItem,
+}: UserProfileProps) {
   const [activeTab, setActiveTab] = useState('selling');
 
   const stats = {
@@ -25,6 +37,19 @@ export function UserProfile({ userItems, favoriteItems, onItemClick, onSellNewIt
     averageRating: 4.8,
   };
 
+  const userInitials = user?.name
+    ? user.name
+        .split(' ')
+        .filter(Boolean)
+        .map(part => part[0]?.toUpperCase() ?? '')
+        .join('')
+        .slice(0, 2)
+    : '';
+  const avatarFallback = userInitials || 'YU';
+  const profileName = user?.name ?? 'Your Profile';
+  const profileEmail = user?.email ?? null;
+  const memberSinceText = 'Member since September 2024';
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       {/* Profile Header */}
@@ -32,15 +57,18 @@ export function UserProfile({ userItems, favoriteItems, onItemClick, onSellNewIt
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
             <Avatar className="w-20 h-20">
-              <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face&auto=format&q=60" />
-              <AvatarFallback>YU</AvatarFallback>
+              <AvatarImage src={user?.picture ?? undefined} alt={profileName} />
+              <AvatarFallback>{avatarFallback}</AvatarFallback>
             </Avatar>
-            
+
             <div className="flex-1">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <h1>Your Profile</h1>
-                  <p className="text-muted-foreground">Member since September 2024</p>
+                  <h1>{profileName}</h1>
+                  {profileEmail && (
+                    <p className="text-muted-foreground">{profileEmail}</p>
+                  )}
+                  <p className="text-muted-foreground">{memberSinceText}</p>
                   <div className="flex items-center gap-1 mt-1">
                     <span className="text-sm">⭐ {stats.averageRating}</span>
                     <span className="text-xs text-muted-foreground">(Based on {Math.floor(Math.random() * 20) + 5} reviews)</span>
