@@ -102,6 +102,103 @@ const mockItems: Item[] = [
   },
 ];
 
+interface StoredUserData {
+  favoriteItems: Item[];
+  userItems: Item[];
+}
+
+const USER_DATA_STORAGE_KEY = 'unimarket_user_data';
+
+const cloneItem = (item: Item): Item => ({
+  ...item,
+  images: Array.isArray(item.images) ? [...item.images] : [],
+  seller: item.seller ? { ...item.seller } : { name: '', avatar: '', rating: 0 },
+});
+
+const dedupeItemsById = (items: Item[] | undefined): Item[] => {
+  if (!items?.length) {
+    return [];
+  }
+
+  const map = new Map<string, Item>();
+  for (const item of items) {
+    if (!item?.id) continue;
+    map.set(item.id, cloneItem(item));
+  }
+  return Array.from(map.values());
+};
+
+const normalizeFavorites = (items: Item[]): Item[] =>
+  dedupeItemsById(items).map(item => ({ ...item, isFavorited: true }));
+
+const buildItemsForUser = (baseItems: Item[], userItems: Item[], favorites: Item[]): Item[] => {
+  const favoriteIds = new Set(favorites.map(item => item.id));
+  const normalizedUserItems = dedupeItemsById(userItems).map(item => ({
+    ...item,
+    isFavorited: favoriteIds.has(item.id),
+  }));
+  const userItemIds = new Set(normalizedUserItems.map(item => item.id));
+  const normalizedBaseItems = dedupeItemsById(baseItems)
+    .filter(item => !userItemIds.has(item.id))
+    .map(item => ({
+      ...item,
+      isFavorited: favoriteIds.has(item.id),
+    }));
+
+  return [...normalizedUserItems, ...normalizedBaseItems];
+};
+
+const getDefaultItems = () => mockItems.map(item => cloneItem(item));
+const getDefaultGuestFavorites = () =>
+  mockItems.filter(item => item.isFavorited).map(item => cloneItem(item));
+
+const loadUserData = (email: string | undefined | null): StoredUserData => {
+  if (!email || typeof window === 'undefined') {
+    return { favoriteItems: [], userItems: [] };
+  }
+
+  try {
+    const raw = window.localStorage.getItem(USER_DATA_STORAGE_KEY);
+    if (!raw) {
+      return { favoriteItems: [], userItems: [] };
+    }
+
+    const allUsers = JSON.parse(raw) as Record<string, StoredUserData>;
+    const stored = allUsers?.[email];
+    if (!stored) {
+      return { favoriteItems: [], userItems: [] };
+    }
+
+    return {
+      favoriteItems: normalizeFavorites(stored.favoriteItems ?? []),
+      userItems: dedupeItemsById(stored.userItems ?? []),
+    };
+  } catch (error) {
+    console.error('Failed to load user data from storage', error);
+    return { favoriteItems: [], userItems: [] };
+  }
+};
+
+const saveUserData = (email: string | undefined | null, data: StoredUserData) => {
+  if (!email || typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(USER_DATA_STORAGE_KEY);
+    const allUsers = raw ? JSON.parse(raw) : {};
+
+    allUsers[email] = {
+      favoriteItems: normalizeFavorites(data.favoriteItems ?? []),
+      userItems: dedupeItemsById(data.userItems ?? []),
+    };
+
+    window.localStorage.setItem(USER_DATA_STORAGE_KEY, JSON.stringify(allUsers));
+  } catch (error) {
+    console.error('Failed to persist user data', error);
+  }
+};
+
 interface GoogleUser {
   name: string;
   email: string;
@@ -112,10 +209,23 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [items, setItems] = useState<Item[]>(mockItems);
-  const [favoriteItems, setFavoriteItems] = useState<Item[]>([mockItems[1]]);
+  const [items, setItems] = useState<Item[]>(() =>
+    buildItemsForUser(getDefaultItems(), [], getDefaultGuestFavorites())
+  );
+  const [favoriteItems, setFavoriteItems] = useState<Item[]>(() =>
+    getDefaultGuestFavorites()
+  );
   const [userItems, setUserItems] = useState<Item[]>([]);
   const [googleUser, setGoogleUser] = useState<GoogleUser | null>(null);
+
+  const applyUserDataToState = (userListings: Item[], favorites: Item[]) => {
+    const normalizedFavorites = normalizeFavorites(favorites);
+    const normalizedUserItems = dedupeItemsById(userListings);
+
+    setFavoriteItems(normalizedFavorites);
+    setUserItems(normalizedUserItems);
+    setItems(buildItemsForUser(getDefaultItems(), normalizedUserItems, normalizedFavorites));
+  };
 
   const handleGoogleLoginSuccess = async (tokenResponse: TokenResponse) => {
     if (!tokenResponse.access_token) {
@@ -143,6 +253,10 @@ export default function App() {
 
       setGoogleUser(userProfile);
       setCurrentPage('profile');
+
+      const storedData = loadUserData(userProfile.email);
+      applyUserDataToState(storedData.userItems, storedData.favoriteItems);
+
       toast.success(`Logged in as ${userProfile.name}`);
     } catch (error) {
       console.error('Failed to fetch Google user info', error);
@@ -163,6 +277,7 @@ export default function App() {
   const handleGoogleLogout = () => {
     googleLogout();
     setGoogleUser(null);
+    applyUserDataToState([], getDefaultGuestFavorites());
     toast.info('Logged out of Google');
   };
 
@@ -177,34 +292,72 @@ export default function App() {
   };
 
   const handleFavoriteToggle = (itemId: string) => {
-    setItems(prevItems =>
-      prevItems.map(item =>
-        item.id === itemId
-          ? { ...item, isFavorited: !item.isFavorited }
-          : item
-      )
+    const item = items.find(currentItem => currentItem.id === itemId);
+    if (!item) {
+      return;
+    }
+
+    const toggledItem: Item = {
+      ...item,
+      isFavorited: !item.isFavorited,
+    };
+
+    const updatedItems = items.map(currentItem =>
+      currentItem.id === itemId ? toggledItem : currentItem
     );
 
-    const item = items.find(item => item.id === itemId);
-    if (item) {
-      if (item.isFavorited) {
-        setFavoriteItems(prev => prev.filter(fav => fav.id !== itemId));
-        toast.success('Removed from favorites');
-      } else {
-        setFavoriteItems(prev => [...prev, { ...item, isFavorited: true }]);
-        toast.success('Added to favorites');
-      }
+    const updatedFavorites = normalizeFavorites(
+      toggledItem.isFavorited
+        ? [...favoriteItems.filter(fav => fav.id !== itemId), toggledItem]
+        : favoriteItems.filter(fav => fav.id !== itemId)
+    );
+
+    setItems(updatedItems);
+    setFavoriteItems(updatedFavorites);
+
+    if (googleUser?.email) {
+      saveUserData(googleUser.email, {
+        favoriteItems: updatedFavorites,
+        userItems,
+      });
     }
+
+    toast.success(
+      toggledItem.isFavorited ? 'Added to favorites' : 'Removed from favorites'
+    );
   };
 
   const handleSellItem = (itemData: any) => {
+    const sellerInfo = googleUser
+      ? {
+          name: googleUser.name,
+          avatar:
+            googleUser.picture ??
+            'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face&auto=format&q=60',
+          rating: 4.8,
+        }
+      : itemData.seller;
+
     const newItem: Item = {
       ...itemData,
       id: Date.now().toString(),
+      seller: sellerInfo,
+      isFavorited: false,
     };
-    
-    setItems(prev => [newItem, ...prev]);
-    setUserItems(prev => [newItem, ...prev]);
+
+    const updatedUserItems = [newItem, ...userItems];
+    const updatedItems = [newItem, ...items];
+
+    setItems(updatedItems);
+    setUserItems(updatedUserItems);
+
+    if (googleUser?.email) {
+      saveUserData(googleUser.email, {
+        favoriteItems,
+        userItems: updatedUserItems,
+      });
+    }
+
     setCurrentPage('profile');
     toast.success('Item listed successfully!');
   };
