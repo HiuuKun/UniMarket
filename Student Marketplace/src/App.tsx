@@ -131,6 +131,33 @@ const dedupeItemsById = (items: Item[] | undefined): Item[] => {
 const normalizeFavorites = (items: Item[]): Item[] =>
   dedupeItemsById(items).map(item => ({ ...item, isFavorited: true }));
 
+const loadAllMarketplaceItems = (): Item[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(USER_DATA_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const allUsers = JSON.parse(raw) as Record<string, StoredUserData>;
+    if (!allUsers || typeof allUsers !== 'object') {
+      return [];
+    }
+
+    const aggregatedItems = Object.values(allUsers).flatMap(user =>
+      Array.isArray(user?.userItems) ? user.userItems : []
+    );
+
+    return dedupeItemsById(aggregatedItems);
+  } catch (error) {
+    console.error('Failed to load marketplace data from storage', error);
+    return [];
+  }
+};
+
 const buildItemsForUser = (baseItems: Item[], userItems: Item[], favorites: Item[]): Item[] => {
   const favoriteIds = new Set(favorites.map(item => item.id));
   const normalizedUserItems = dedupeItemsById(userItems).map(item => ({
@@ -209,8 +236,15 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [marketplaceItems, setMarketplaceItems] = useState<Item[]>(() =>
+    loadAllMarketplaceItems()
+  );
   const [items, setItems] = useState<Item[]>(() =>
-    buildItemsForUser(getDefaultItems(), [], getDefaultGuestFavorites())
+    buildItemsForUser(
+      [...getDefaultItems(), ...loadAllMarketplaceItems()],
+      [],
+      getDefaultGuestFavorites()
+    )
   );
   const [favoriteItems, setFavoriteItems] = useState<Item[]>(() =>
     getDefaultGuestFavorites()
@@ -218,13 +252,25 @@ export default function App() {
   const [userItems, setUserItems] = useState<Item[]>([]);
   const [googleUser, setGoogleUser] = useState<GoogleUser | null>(null);
 
-  const applyUserDataToState = (userListings: Item[], favorites: Item[]) => {
+  const applyUserDataToState = (
+    userListings: Item[],
+    favorites: Item[],
+    marketplaceListings: Item[] = marketplaceItems
+  ) => {
     const normalizedFavorites = normalizeFavorites(favorites);
     const normalizedUserItems = dedupeItemsById(userListings);
+    const normalizedMarketplaceItems = dedupeItemsById(marketplaceListings);
 
     setFavoriteItems(normalizedFavorites);
     setUserItems(normalizedUserItems);
-    setItems(buildItemsForUser(getDefaultItems(), normalizedUserItems, normalizedFavorites));
+    setMarketplaceItems(normalizedMarketplaceItems);
+    setItems(
+      buildItemsForUser(
+        [...getDefaultItems(), ...normalizedMarketplaceItems],
+        normalizedUserItems,
+        normalizedFavorites
+      )
+    );
   };
 
   const handleGoogleLoginSuccess = async (tokenResponse: TokenResponse) => {
@@ -255,7 +301,12 @@ export default function App() {
       setCurrentPage('profile');
 
       const storedData = loadUserData(userProfile.email);
-      applyUserDataToState(storedData.userItems, storedData.favoriteItems);
+      const storedMarketplaceItems = loadAllMarketplaceItems();
+      applyUserDataToState(
+        storedData.userItems,
+        storedData.favoriteItems,
+        storedMarketplaceItems
+      );
 
       toast.success(`Logged in as ${userProfile.name}`);
     } catch (error) {
@@ -277,7 +328,11 @@ export default function App() {
   const handleGoogleLogout = () => {
     googleLogout();
     setGoogleUser(null);
-    applyUserDataToState([], getDefaultGuestFavorites());
+    applyUserDataToState(
+      [],
+      getDefaultGuestFavorites(),
+      loadAllMarketplaceItems()
+    );
     toast.info('Logged out of Google');
   };
 
@@ -345,15 +400,23 @@ export default function App() {
       isFavorited: false,
     };
 
-    const updatedUserItems = [newItem, ...userItems];
-    const updatedItems = [newItem, ...items];
+    const updatedUserItems = dedupeItemsById([newItem, ...userItems]);
+    const updatedMarketplaceItems = dedupeItemsById([newItem, ...marketplaceItems]);
+    const normalizedFavorites = normalizeFavorites(favoriteItems);
 
-    setItems(updatedItems);
+    setMarketplaceItems(updatedMarketplaceItems);
     setUserItems(updatedUserItems);
+    setItems(
+      buildItemsForUser(
+        [...getDefaultItems(), ...updatedMarketplaceItems],
+        updatedUserItems,
+        normalizedFavorites
+      )
+    );
 
     if (googleUser?.email) {
       saveUserData(googleUser.email, {
-        favoriteItems,
+        favoriteItems: normalizedFavorites,
         userItems: updatedUserItems,
       });
     }
