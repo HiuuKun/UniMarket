@@ -12,6 +12,7 @@ import { UserProfile } from "./components/UserProfile";
 import { Item } from "./components/ItemCard";
 import { toast } from "sonner@2.0.3";
 import { Toaster } from "./components/ui/sonner";
+import { ChatDrawer } from "./components/ChatDrawer";
 
 // Mock data for items
 const mockItems: Item[] = [
@@ -251,6 +252,7 @@ export default function App() {
   );
   const [userItems, setUserItems] = useState<Item[]>([]);
   const [googleUser, setGoogleUser] = useState<GoogleUser | null>(null);
+  const [activeChatItem, setActiveChatItem] = useState<Item | null>(null);
 
   const applyUserDataToState = (
     userListings: Item[],
@@ -328,6 +330,7 @@ export default function App() {
   const handleGoogleLogout = () => {
     googleLogout();
     setGoogleUser(null);
+    setActiveChatItem(null);
     applyUserDataToState(
       [],
       getDefaultGuestFavorites(),
@@ -425,8 +428,8 @@ export default function App() {
     toast.success('Item listed successfully!');
   };
 
-  const handleContactSeller = (sellerId: string) => {
-    toast.info(`Opening chat with ${sellerId}...`);
+  const handleContactSeller = (item: Item) => {
+    setActiveChatItem(item);
   };
 
   const handleEditItem = (item: Item) => {
@@ -502,7 +505,16 @@ export default function App() {
       <main className="flex-1 flex flex-col">
         {renderCurrentPage()}
       </main>
-      
+
+      <ChatDrawer
+        item={activeChatItem}
+        buyer={{
+          name: googleUser?.name ?? 'Guest Buyer',
+          avatar: googleUser?.picture ?? undefined,
+        }}
+        onClose={() => setActiveChatItem(null)}
+      />
+
       <Toaster />
     </div>
   );
