@@ -10,7 +10,7 @@ import { Item } from "./ItemCard";
 interface ItemDetailProps {
   item: Item;
   onBack: () => void;
-  onContact: (sellerId: string) => void;
+  onContact: (item: Item) => void;
 }
 
 export function ItemDetail({ item, onBack, onContact }: ItemDetailProps) {
@@ -106,9 +106,9 @@ export function ItemDetail({ item, onBack, onContact }: ItemDetailProps) {
                 </div>
               </div>
               
-              <Button 
-                className="w-full gap-2" 
-                onClick={() => onContact(item.seller.name)}
+              <Button
+                className="w-full gap-2"
+                onClick={() => onContact(item)}
               >
                 <MessageCircle className="h-4 w-4" />
                 Contact Seller
