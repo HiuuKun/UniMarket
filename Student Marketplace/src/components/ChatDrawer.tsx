@@ -1,7 +1,13 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { CheckCheck, Loader2, Send, Wifi, WifiOff } from "lucide-react";
 
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -26,9 +32,14 @@ type ChatMessage = {
 
 type ConnectionState = "idle" | "connecting" | "open" | "error";
 
-const WEBSOCKET_URL = "wss://echo.websocket.events";
+// ✅ Use localhost WS when running locally
+const WEBSOCKET_URL =
+  typeof window !== "undefined" && window.location.hostname === "localhost"
+    ? "ws://localhost:3001"
+    : "wss://echo.websocket.events";
 
-const createMessageId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+const createMessageId = () =>
+  `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 const formatTimestamp = (timestamp: number) =>
   new Date(timestamp).toLocaleTimeString([], {
@@ -46,7 +57,8 @@ export function ChatDrawer({ item, buyer, onClose }: ChatDrawerProps) {
   const open = Boolean(item);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
+  const [connectionState, setConnectionState] =
+    useState<ConnectionState>("idle");
   const [connectionAttempt, setConnectionAttempt] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -55,24 +67,24 @@ export function ChatDrawer({ item, buyer, onClose }: ChatDrawerProps) {
   const buyerFirstName = buyer.name.trim().split(" ")[0] || "there";
   const itemTitle = item?.title ?? "this item";
 
+  // Reset when drawer closes
   useEffect(() => {
     if (!open) {
       setMessages([]);
       setInputValue("");
       setConnectionState("idle");
-      socketRef.current?.close();
-      socketRef.current = null;
+      if (socketRef.current) {
+        socketRef.current.close();
+        socketRef.current = null;
+      }
       return;
     }
-
     inputRef.current?.focus();
   }, [open]);
 
+  // Initial welcome message
   useEffect(() => {
-    if (!open || !item) {
-      return;
-    }
-
+    if (!open || !item) return;
     setMessages([
       {
         id: createMessageId(),
@@ -84,68 +96,52 @@ export function ChatDrawer({ item, buyer, onClose }: ChatDrawerProps) {
     ]);
   }, [open, item?.id, item?.seller.name, item?.title, buyerFirstName]);
 
+  // WebSocket setup
   useEffect(() => {
-    if (!open || !item) {
-      return;
-    }
+    if (!open || !item) return;
 
     setConnectionState("connecting");
-
     let isActive = true;
     const socket = new WebSocket(WEBSOCKET_URL);
     socketRef.current = socket;
 
     socket.onopen = () => {
-      if (!isActive) {
-        return;
-      }
+      if (!isActive) return;
       setConnectionState("open");
     };
 
     socket.onerror = () => {
-      if (!isActive) {
-        return;
-      }
+      if (!isActive) return;
       setConnectionState("error");
     };
 
     socket.onclose = () => {
-      if (!isActive) {
-        return;
-      }
-      setConnectionState(prev => (prev === "error" ? "error" : "idle"));
+      if (!isActive) return;
+      setConnectionState((prev) => (prev === "error" ? "error" : "idle"));
     };
 
-    socket.onmessage = event => {
-      if (!isActive) {
-        return;
-      }
-
-      if (typeof event.data !== "string") {
-        return;
-      }
-
-      if (event.data === "echo.websocket.events sponsored by Lob.com") {
-        return;
-      }
+    socket.onmessage = (event) => {
+      if (!isActive) return;
+      if (typeof event.data !== "string") return;
+      if (event.data === "echo.websocket.events sponsored by Lob.com") return;
 
       try {
-        const parsed = JSON.parse(event.data) as Partial<ChatMessage> & { id?: string };
+        const parsed = JSON.parse(event.data) as Partial<ChatMessage> & {
+          id?: string;
+        };
         if (parsed?.id) {
-          setMessages(prevMessages =>
-            prevMessages.map(message =>
-              message.id === parsed.id
-                ? { ...message, status: "delivered" }
-                : message,
-            ),
+          // update delivery
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === parsed.id ? { ...m, status: "delivered" } : m
+            )
           );
 
+          // seller reply after short delay
           setTimeout(() => {
-            if (!isActive) {
-              return;
-            }
-            setMessages(prevMessages => [
-              ...prevMessages,
+            if (!isActive) return;
+            setMessages((prev) => [
+              ...prev,
               {
                 id: `${parsed.id}-reply`,
                 sender: "seller",
@@ -162,8 +158,8 @@ export function ChatDrawer({ item, buyer, onClose }: ChatDrawerProps) {
       }
 
       if (event.data.trim()) {
-        setMessages(prevMessages => [
-          ...prevMessages,
+        setMessages((prev) => [
+          ...prev,
           {
             id: createMessageId(),
             sender: "system",
@@ -177,33 +173,29 @@ export function ChatDrawer({ item, buyer, onClose }: ChatDrawerProps) {
 
     return () => {
       isActive = false;
-      socketRef.current = null;
-      socket.close();
+      if (socketRef.current) {
+        socketRef.current.close();
+        socketRef.current = null;
+      }
       setConnectionState("idle");
     };
   }, [open, item?.id, itemTitle, buyerFirstName, connectionAttempt]);
 
+  // Auto-scroll
   useEffect(() => {
-    if (!open) {
-      return;
-    }
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (open) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, open]);
 
   const handleSendMessage = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    if (!item) {
-      return;
-    }
+    if (!item) return;
 
     const trimmed = inputValue.trim();
-    if (!trimmed) {
-      return;
-    }
+    if (!trimmed) return;
 
     const socket = socketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) {
+      console.warn("WebSocket is not open, message not sent.");
       return;
     }
 
@@ -216,7 +208,7 @@ export function ChatDrawer({ item, buyer, onClose }: ChatDrawerProps) {
       status: "pending",
     };
 
-    setMessages(prevMessages => [...prevMessages, outgoing]);
+    setMessages((prev) => [...prev, outgoing]);
 
     try {
       socket.send(
@@ -224,7 +216,7 @@ export function ChatDrawer({ item, buyer, onClose }: ChatDrawerProps) {
           ...outgoing,
           buyerName: buyer.name,
           itemId: item.id,
-        }),
+        })
       );
     } catch (error) {
       console.error("Failed to send chat message", error);
@@ -235,12 +227,9 @@ export function ChatDrawer({ item, buyer, onClose }: ChatDrawerProps) {
   };
 
   const handleRetryConnection = () => {
-    if (!open) {
-      return;
-    }
-
+    if (!open) return;
     setConnectionState("connecting");
-    setConnectionAttempt(attempt => attempt + 1);
+    setConnectionAttempt((a) => a + 1);
   };
 
   const connectionHelperText = (() => {
@@ -257,7 +246,9 @@ export function ChatDrawer({ item, buyer, onClose }: ChatDrawerProps) {
   })();
 
   const canSendMessage =
-    connectionState === "open" && Boolean(inputValue.trim()) && Boolean(item);
+    connectionState === "open" &&
+    Boolean(inputValue.trim()) &&
+    Boolean(item);
 
   const renderConnectionBadge = () => {
     switch (connectionState) {
@@ -303,10 +294,8 @@ export function ChatDrawer({ item, buyer, onClose }: ChatDrawerProps) {
   return (
     <Dialog
       open={open}
-      onOpenChange={isOpen => {
-        if (!isOpen) {
-          onClose();
-        }
+      onOpenChange={(isOpen) => {
+        if (!isOpen) onClose();
       }}
     >
       {item ? (
@@ -333,7 +322,7 @@ export function ChatDrawer({ item, buyer, onClose }: ChatDrawerProps) {
 
           <ScrollArea className="h-72 rounded-md border bg-muted/30 p-4">
             <div className="flex flex-col gap-3 text-sm">
-              {messages.map(message => {
+              {messages.map((message) => {
                 if (message.sender === "system") {
                   return (
                     <div key={message.id} className="flex justify-center">
@@ -345,11 +334,13 @@ export function ChatDrawer({ item, buyer, onClose }: ChatDrawerProps) {
                 }
 
                 const isBuyer = message.sender === "buyer";
-
                 return (
                   <div
                     key={message.id}
-                    className={cn("flex w-full", isBuyer ? "justify-end" : "justify-start")}
+                    className={cn(
+                      "flex w-full",
+                      isBuyer ? "justify-end" : "justify-start"
+                    )}
                   >
                     <div className="max-w-[80%] space-y-1">
                       <div
@@ -357,7 +348,7 @@ export function ChatDrawer({ item, buyer, onClose }: ChatDrawerProps) {
                           "rounded-lg px-3 py-2 shadow-sm",
                           isBuyer
                             ? "bg-primary text-primary-foreground"
-                            : "bg-background border",
+                            : "bg-background border"
                         )}
                       >
                         {message.content}
@@ -365,7 +356,7 @@ export function ChatDrawer({ item, buyer, onClose }: ChatDrawerProps) {
                       <div
                         className={cn(
                           "flex items-center gap-2 text-[11px] text-muted-foreground",
-                          isBuyer ? "justify-end" : "justify-start",
+                          isBuyer ? "justify-end" : "justify-start"
                         )}
                       >
                         <span>{formatTimestamp(message.timestamp)}</span>
@@ -396,7 +387,11 @@ export function ChatDrawer({ item, buyer, onClose }: ChatDrawerProps) {
           {connectionState === "error" && (
             <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               <span>We lost the connection to the chat.</span>
-              <Button size="sm" variant="outline" onClick={handleRetryConnection}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleRetryConnection}
+              >
                 Retry
               </Button>
             </div>
@@ -407,7 +402,7 @@ export function ChatDrawer({ item, buyer, onClose }: ChatDrawerProps) {
               <Input
                 ref={inputRef}
                 value={inputValue}
-                onChange={event => setInputValue(event.target.value)}
+                onChange={(event) => setInputValue(event.target.value)}
                 placeholder="Write a message..."
                 disabled={connectionState !== "open"}
               />
@@ -416,7 +411,9 @@ export function ChatDrawer({ item, buyer, onClose }: ChatDrawerProps) {
                 <span className="sr-only">Send message</span>
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">{connectionHelperText}</p>
+            <p className="text-xs text-muted-foreground">
+              {connectionHelperText}
+            </p>
           </form>
         </DialogContent>
       ) : null}

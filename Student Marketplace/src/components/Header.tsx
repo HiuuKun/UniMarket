@@ -62,38 +62,6 @@ export function Header({
 
         {/* Navigation */}
         <nav className="hidden md:flex items-center gap-6">
-          <button
-            onClick={() => onNavigate('home')}
-            className={`text-sm transition-colors hover:text-primary ${
-              currentPage === 'home' ? 'text-primary' : 'text-muted-foreground'
-            }`}
-          >
-            Browse
-          </button>
-          <button
-            onClick={() => onNavigate('categories')}
-            className={`text-sm transition-colors hover:text-primary ${
-              currentPage === 'categories' ? 'text-primary' : 'text-muted-foreground'
-            }`}
-          >
-            Categories
-          </button>
-          <button
-            onClick={() => onNavigate('sell')}
-            className={`text-sm transition-colors hover:text-primary ${
-              currentPage === 'sell' ? 'text-primary' : 'text-muted-foreground'
-            }`}
-          >
-            Sell
-          </button>
-          <button
-            onClick={() => onNavigate('profile')}
-            className={`text-sm transition-colors hover:text-primary ${
-              currentPage === 'profile' ? 'text-primary' : 'text-muted-foreground'
-            }`}
-          >
-            My Items
-          </button>
         </nav>
 
         {/* Action Buttons */}
@@ -106,26 +74,28 @@ export function Header({
             <Plus className="h-4 w-4 mr-2" />
             Sell Item
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onNavigate('profile')}
-            aria-label="View profile"
-          >
-            {user?.picture ? (
-              <img
-                src={user.picture}
-                alt={user.name}
-                className="h-6 w-6 rounded-full object-cover"
-              />
-            ) : userInitials ? (
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium uppercase">
-                {userInitials}
-              </span>
-            ) : (
-              <User className="h-4 w-4" />
-            )}
-          </Button>
+          {user && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onNavigate('profile')}
+              aria-label="View profile"
+            >
+              {user?.picture ? (
+                <img
+                  src={user.picture}
+                  alt={user.name}
+                  className="h-6 w-6 rounded-full object-cover"
+                />
+              ) : userInitials ? (
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium uppercase">
+                  {userInitials}
+                </span>
+              ) : (
+                <User className="h-4 w-4" />
+              )}
+            </Button>
+          )}
           {user ? (
             <>
               {(firstName || user.email) && (

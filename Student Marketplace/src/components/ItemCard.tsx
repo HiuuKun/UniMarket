@@ -66,9 +66,6 @@ export function ItemCard({ item, onItemClick, onFavoriteToggle }: ItemCardProps)
           </h3>
           
           <div className="flex items-center justify-between">
-            <span className="text-lg font-semibold text-primary">
-              ${item.price}
-            </span>
             <Badge variant="outline" className="text-xs">
               {item.category}
             </Badge>

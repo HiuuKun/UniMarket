@@ -34,7 +34,7 @@ export function SellItemForm({ onSubmit, onCancel }: SellItemFormProps) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    price: '',
+    price: 0, // No price for exchange
     category: '',
     condition: '',
     location: '',
@@ -212,29 +212,15 @@ export function SellItemForm({ onSubmit, onCancel }: SellItemFormProps) {
               </div>
             </div>
 
-            {/* Price and Location */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="price">Price ($) *</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.price}
-                  onChange={(e) => handleInputChange('price', e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <Input
-                  id="location"
-                  placeholder="e.g., North Campus, Engineering Building"
-                  value={formData.location}
-                  onChange={(e) => handleInputChange('location', e.target.value)}
-                />
-              </div>
+            {/* Location */}
+            <div className="space-y-2">
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                placeholder="e.g., North Campus, Engineering Building"
+                value={formData.location}
+                onChange={(e) => handleInputChange('location', e.target.value)}
+              />
             </div>
 
             {/* Description */}
@@ -252,7 +238,7 @@ export function SellItemForm({ onSubmit, onCancel }: SellItemFormProps) {
             {/* Action Buttons */}
             <div className="flex gap-4">
               <Button type="submit" className="flex-1">
-                Post Item
+                List for Exchange
               </Button>
               <Button type="button" variant="outline" onClick={onCancel}>
                 Cancel

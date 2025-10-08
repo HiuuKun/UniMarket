@@ -1,4 +1,4 @@
-import { ArrowLeft, Heart, Share2, MapPin, Clock, Star, MessageCircle } from "lucide-react";
+import { ArrowLeft, Heart, Share2, MapPin, Clock, Star, MessageCircle, RefreshCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Card, CardContent } from "./ui/card";
@@ -11,9 +11,11 @@ interface ItemDetailProps {
   item: Item;
   onBack: () => void;
   onContact: (item: Item) => void;
+  onExchange?: (item: Item) => void;
+  userItems?: Item[];
 }
 
-export function ItemDetail({ item, onBack, onContact }: ItemDetailProps) {
+export function ItemDetail({ item, onBack, onContact, onExchange, userItems }: ItemDetailProps) {
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       {/* Header */}
@@ -80,8 +82,8 @@ export function ItemDetail({ item, onBack, onContact }: ItemDetailProps) {
               <Badge variant="outline">{item.condition}</Badge>
             </div>
 
-            <div className="text-3xl font-bold text-primary mb-6">
-              ${item.price}
+            <div className="text-lg text-muted-foreground mb-6">
+              Available for exchange
             </div>
           </div>
 
@@ -106,13 +108,25 @@ export function ItemDetail({ item, onBack, onContact }: ItemDetailProps) {
                 </div>
               </div>
               
-              <Button
-                className="w-full gap-2"
-                onClick={() => onContact(item)}
-              >
-                <MessageCircle className="h-4 w-4" />
-                Contact Seller
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  className="w-full gap-2"
+                  onClick={() => onContact(item)}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Contact Seller
+                </Button>
+                {onExchange && userItems && userItems.length > 0 && (
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2"
+                    onClick={() => onExchange(item)}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Exchange
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
 

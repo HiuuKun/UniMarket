@@ -10,6 +10,7 @@ import { ItemDetail } from "./components/ItemDetail";
 import { SellItemForm } from "./components/SellItemForm";
 import { UserProfile } from "./components/UserProfile";
 import { Item } from "./components/ItemCard";
+import { ExchangeModal } from "./components/ExchangeModal";
 import { toast } from "sonner@2.0.3";
 import { Toaster } from "./components/ui/sonner";
 import { ChatDrawer } from "./components/ChatDrawer";
@@ -19,7 +20,7 @@ const mockItems: Item[] = [
   {
     id: '1',
     title: 'MacBook Pro 13-inch 2020 - Excellent Condition',
-    price: 899,
+    price: 0, // No price for exchange
     location: 'North Campus',
     timePosted: '2 hours ago',
     category: 'electronics',
@@ -36,13 +37,13 @@ const mockItems: Item[] = [
   {
     id: '2',
     title: 'Organic Chemistry Textbook - 8th Edition',
-    price: 85,
+    price: 0, // No price for exchange
     location: 'Science Library',
     timePosted: '5 hours ago',
     category: 'books',
     condition: 'good',
     images: ['https://images.unsplash.com/photo-1608453162650-cba45689c284?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx1bml2ZXJzaXR5JTIwc3R1ZGVudHMlMjBib29rc3xlbnwxfHx8fDE3NTgyNDY4NTB8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'],
-    description: 'Used for CHEM 2410/2420. Some highlighting and notes in margins but all pages intact. Still in good condition. Retail price is $350+.',
+    description: 'Used for CHEM 2410/2420. Some highlighting and notes in margins but all pages intact. Still in good condition. Perfect for exchange.',
     seller: {
       name: 'Sarah Johnson',
       avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b8b5?w=150&h=150&fit=crop&crop=face&auto=format&q=60',
@@ -53,7 +54,7 @@ const mockItems: Item[] = [
   {
     id: '3',
     title: 'Vintage Denim Jacket - Size M',
-    price: 35,
+    price: 0, // No price for exchange
     location: 'Student Center',
     timePosted: '1 day ago',
     category: 'clothing',
@@ -70,13 +71,13 @@ const mockItems: Item[] = [
   {
     id: '4',
     title: 'IKEA Desk Lamp - White',
-    price: 15,
+    price: 0, // No price for exchange
     location: 'West Campus',
     timePosted: '2 days ago',
     category: 'furniture',
     condition: 'excellent',
     images: ['https://images.unsplash.com/photo-1586023492125-27b9e57b3050?w=400&h=400&fit=crop&auto=format&q=60'],
-    description: 'Great condition desk lamp. Works perfectly, no issues. Moving out so need to sell quickly.',
+    description: 'Great condition desk lamp. Works perfectly, no issues. Moving out so need to exchange quickly.',
     seller: {
       name: 'Emma Wilson',
       avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face&auto=format&q=60',
@@ -87,7 +88,7 @@ const mockItems: Item[] = [
   {
     id: '5',
     title: 'PlayStation 5 Controller - DualSense',
-    price: 45,
+    price: 0, // No price for exchange
     location: 'Gaming Lounge',
     timePosted: '3 days ago',
     category: 'gaming',
@@ -253,6 +254,8 @@ export default function App() {
   const [userItems, setUserItems] = useState<Item[]>([]);
   const [googleUser, setGoogleUser] = useState<GoogleUser | null>(null);
   const [activeChatItem, setActiveChatItem] = useState<Item | null>(null);
+  const [exchangeModalOpen, setExchangeModalOpen] = useState(false);
+  const [exchangeTargetItem, setExchangeTargetItem] = useState<Item | null>(null);
 
   const applyUserDataToState = (
     userListings: Item[],
@@ -436,10 +439,24 @@ export default function App() {
     toast.info('Edit functionality would open here');
   };
 
+  const handleExchange = (item: Item) => {
+    setExchangeTargetItem(item);
+    setExchangeModalOpen(true);
+  };
+
+  const handleConfirmExchange = (selectedItem: Item, targetItem: Item) => {
+    toast.success(`Exchange proposed: Your ${selectedItem.title} for ${targetItem.title}`);
+    // Here you would typically send the exchange proposal to the backend
+  };
+
+  const handleCloseExchangeModal = () => {
+    setExchangeModalOpen(false);
+    setExchangeTargetItem(null);
+  };
+
   const renderCurrentPage = () => {
     switch (currentPage) {
       case 'home':
-      case 'categories':
         return (
           <HomePage
             items={items}
@@ -455,6 +472,8 @@ export default function App() {
             item={selectedItem}
             onBack={() => setCurrentPage('home')}
             onContact={handleContactSeller}
+            onExchange={handleExchange}
+            userItems={userItems}
           />
         ) : null;
       
@@ -514,6 +533,15 @@ export default function App() {
         }}
         onClose={() => setActiveChatItem(null)}
       />
+
+      {exchangeModalOpen && exchangeTargetItem && (
+        <ExchangeModal
+          targetItem={exchangeTargetItem}
+          userItems={userItems}
+          onClose={handleCloseExchangeModal}
+          onConfirmExchange={handleConfirmExchange}
+        />
+      )}
 
       <Toaster />
     </div>
